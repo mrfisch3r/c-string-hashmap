@@ -1,5 +1,30 @@
 #include "strmap.h"
 
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+
+enum { STRMAP_MIN_BUCKETS = 2, STRMAP_MAX_BUCKETS = 4096 };
+
+typedef struct smel {
+    char *sme_key;
+    void *sme_value;
+    struct smel *sme_next;
+} smel_t;
+
+struct strmap {
+    int strmap_size;
+    int strmap_nbuckets;
+    smel_t **strmap_buckets;
+};
+
+static char *strmap_strdup(const char *s) {
+    size_t n = strlen(s) + 1;
+    char *p = (char *)malloc(n);
+    if (p) memcpy(p, s, n);
+    return p;
+}
+
 //Hash function: using char * and numbuckets, return an index into the bucket array (0 <= int < strmap_nbuckets (size of array))
 unsigned long hash(char *key, int numbuckets) {
 
@@ -21,18 +46,18 @@ unsigned long hash(char *key, int numbuckets) {
 
 /* Creates a new strmap_t, initializes it to be empty, and returns a pointer to it.
 The map's array will have numbuckets elements. If the numbuckets argument is larger
-than the constant MAX_BUCKETS (defined in strmap.h), or smaller than MIN_BUCKETS,
+than the constant STRMAP_MAX_BUCKETS (defined in strmap.h), or smaller than STRMAP_MIN_BUCKETS,
 it is 'clipped' to be within the appropriate range. For best performance, the
 number of buckets should be chosen to be larger than the number of pairs the map is
 expected to hold. */
 strmap_t *strmap_create(int numbuckets) {
 
     // check if numbuckets is within bounds, 'clipping' if not
-    if (numbuckets < MIN_BUCKETS) {
-        numbuckets = MIN_BUCKETS;
+    if (numbuckets < STRMAP_MIN_BUCKETS) {
+        numbuckets = STRMAP_MIN_BUCKETS;
     } 
-    else if (numbuckets > MAX_BUCKETS) {
-        numbuckets = MAX_BUCKETS;
+    else if (numbuckets > STRMAP_MAX_BUCKETS) {
+        numbuckets = STRMAP_MAX_BUCKETS;
     }
 
     // allocate memory for strmap_t structure
@@ -78,7 +103,7 @@ void *strmap_put(strmap_t *m, char *key, void *value){
     newe = (smel_t *)malloc(sizeof(smel_t));
 
     //populate struct members of smel_t
-    newe->sme_key = strdup(key);
+    newe->sme_key = strmap_strdup(key);
     newe->sme_value = value;
     newe->sme_next = m->strmap_buckets[index];
     m->strmap_buckets[index] = newe;
@@ -160,7 +185,7 @@ void strmap_dump(strmap_t *m) {
     printf("total elements = %i\n", strmap_getsize(m));
 
     // iterate through the bucket array, searching for nonempty buckets
-    for (unsigned int i = 0; i < m->strmap_nbuckets; i++) {
+    for (int i = 0; i < m->strmap_nbuckets; i++) {
         smel_t *elem = m->strmap_buckets[i];
         
         // if nonempty, print key and value
